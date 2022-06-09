@@ -25,73 +25,29 @@ TH1D *gsE = new TH1D("gsE","Griffin Projection g-l-l coincidences",5000,0.5, 500
 TH1D *htemp;
 TH2D *lEA;
 
-TFile *outfile = TFile::Open("myanalysis.root","RECREATE");
+TFile *outfile = TFile::Open("isaiah_analysis.root","UPDATE");
 
-tuple<double, double, double, double, TPeakFitter*, TRWPeak*> FitResult(TH1D *histogram, double cent_val, double low_bound, double up_bound){
-	TPeakFitter *peak_fit = new TPeakFitter(low_bound,up_bound);
-	TRWPeak *peak = new TRWPeak(cent_val);
-	peak_fit->AddPeak(peak);
-	peak_fit->Fit(histogram,"EQLS+");
-	double new_cent_val = peak->GetFitFunction()->GetParameter(1);
-	double error = peak->GetFitFunction()->GetParError(1);
-	double width = peak->GetFitFunction()->GetParameter(2);
-	double chi2 = peak->GetFitFunction()->GetParameter(0) / peak_fit->GetFitFunction()->GetNDF();
-	return {new_cent_val, error, width, chi2, peak_fit, peak};
+TTree *start_tree;
+TTree *stop_tree;
+
+/*
+PURPOSE:
+- Outputs syntax for ROOT to gate around certain bins
+OUTPUT:
+- const char* that can be used by ROOT to draw gates from TTrees
+*/
+const char *GatingCondition(string branch, int low, int high){
+	const char *gate_condition;
+	gate_condition = Form("%s>%d&&%s<%d",branch.c_str(),low, branch.c_str(), high );
+	return gate_condition;
 }
 
-void MyFits( int DetNum ){  // Fit peaks chosen detector
-
-	SpectraFile->cd();
-	if( hist[i][j]->Integral() < 10000 ) continue; //skipping empty spectra
-	for(int k = 0; k < LitEnergy[i].size(); k++){
-		cout << "Fiting peak " << LitEnergy[i].at(k) << " From SOURCE " << Source[i] << " Detector " << DetNum << endl;
-		int fit_counter = 0;			
-		good_fit = true;
-		cent = LitEnergy[i].at(k) / cal_pars[j].at(1);
-		low = cent - 10;
-		upp = cent + 10;
-		new_low = low;
-		new_upp = upp;
-		auto [centr, err, width, chi2, pf_curr, P1_curr] = FitResult(hist[i][j],cent,new_low,new_upp);
-		pf[i][j][k] = pf_curr;
-		P1[i][j][k] = P1_curr;
-		cent = centr;
-		while( err == 0 || width > 3. || width < 0.5 || chi2 > 1E5 || cent < new_low || cent > new_upp ){
-			cent = LitEnergy[i].at(k) / cal_pars[j].at(1);
-			new_low = low + 8*(rand_par.Rndm()-0.5);
-			new_upp = upp + 8*(rand_par.Rndm()-0.5);
-			auto [centr, err, width, chi2, pf_curr, P1_curr] = FitResult(hist[i][j],cent,new_low,new_upp);
-			pf[i][j][k] = pf_curr;
-			P1[i][j][k] = P1_curr;
-			cent = centr;
-			fit_counter++;
-			if( fit_counter == 2 ){// if no good fit is found after 10 cycles, move on
-				cout << "No good fit found...skipping data point" << endl;
-				good_fit = false;
-				break;
-			}
-		}			
-		if( good_fit == true ){ //set fit if good fit is found
-			cent = centr;
-			P1[i][j][k]->GetFitFunction()->SetLineColor(kRed);
-			//source_num[DetNum-1].push_back(i); is this line doing nothing?
-			gData[i][j]->SetPoint(gData[i][j]->GetN(),cent, LitEnergy[i].at(k) );
-			gData[i][j]->SetPointError(gData[i][j]->GetN()-1,err, 0.1 );
-			fitnum_counter++;
-		}
-	}
-	for(int k = 0; k < LitEnergy[i].size(); k++){ 
-		pf[i][j][k]->Draw("same"); //Draws all fits onto histogram
-		P1[i][j][k]->Draw("same");
-	}
-	hist[i][j]->Write(hist[i][j]->GetName(),TObject::kOverwrite);
-	GraphsFile->cd(); gData[i][j]->Write(gData[i][j]->GetName(),TObject::kOverwrite);
-	SpectraFile->cd();		
-	//C->Close();
-
-}
-
-
+/*
+PURPOSE:
+- Reads in .root files, sums them together into a TTree (you can treat this as a TFile)
+OUTPUT:
+- Creates TH1D of LaBr projection gsE object
+*/
 void SumTrees(int FirstRum, int LastRun){
 	
 	int counter=0;
@@ -121,18 +77,60 @@ void MakeLaLaEnergyMatrix(int NBins, double firstbin, double lastbin){
 	TH2D *lltE = (TH2D*)outfile->Get("lltE");
 }
 
-void llt_start_gate(double low, double high, int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
-
+/*
+PURPOSE:
+- Applies energy gate to first LaBr
+OUTPUT:
+- Creates TH2D of second LaBr and TAC bins. 
+- Creates TH1D of second LaBr projection if user wants to visualize possible gating targets
+*/
+//TH2D *llt_start_gate(int La1_Low, int La1_high,int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
+void llt_start_gate(int La1_Low, int La1_high,int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
 	outfile->cd();
-	llt.Draw(Form("%s:%s>>latac_gate_start_la_%d_%d(%d,%f,%f,%d,%f,%f)",stop.c_str(),tac.c_str(),(int)low,(int)high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin),
-		Form("%s>%f&&%s<%f",start.c_str(),low,start.c_str(),high ) );
-	TH2D *latacdelmat = (TH2D*)outfile->Get(Form("latac_gate_start_la_%f_%f",low,high));
+
+	//start_tree->Clear();
+	start_tree = llt.CopyTree( GatingCondition(start,La1_Low, La1_high ) );
+	start_tree->Draw(Form("%s:%s>>latac_gate_la1_%d_%d(%d,%f,%f,%d,%f,%f)",stop.c_str(),tac.c_str(),La1_Low,La1_high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin));
+	TH2D *latacdelmat = (TH2D*)outfile->Get(Form("latac_gate_la1_%d_%d",La1_Low,La1_high));
+	TH1D *laprojhisto = latacdelmat->ProjectionY(Form("la2_proj_gate_la1_%d_%d",La1_Low,La1_high));
+	start_tree->SetName("StartTree");
+	
+	
+	stop_tree = llt.CopyTree( GatingCondition(stop,La1_Low,La1_high ) );
+	stop_tree->Draw(Form("%s:%s>>latac_gate_la2_%d_%d(%d,%f,%f,%d,%f,%f)",start.c_str(),tac.c_str(),La1_Low,La1_high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin));
+	TH2D *latacantidelmat = (TH2D*)outfile->Get(Form("latac_gate_la2_%d_%d",La1_Low,La1_high));
+	TH1D *laprojantihisto = latacantidelmat->ProjectionY(Form("la1_proj_gate_la2_%d_%d",La1_Low,La1_high));
+	stop_tree->SetName("StopTree");
+
+	// This section is to write the histograms to a file if necessary
+	outfile->Write(latacdelmat->GetName(),TObject::kOverwrite);
+	//outfile->Write(laprojhisto->GetName(),TObject::kOverwrite);
+	outfile->Write(latacantidelmat->GetName(),TObject::kOverwrite);
+	//outfile->Write(laprojantihisto->GetName(),TObject::kOverwrite);
+
+	//TH2D* latac_mats[2] = {latacdelmat,latacantidelmat};return latac_mats;
+	
 }
 
-void llt_stop_gate(double low, double high, int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
+/*
+PURPOSE:
+- Applies second energy gate to second LaBr
+OUTPUT:
+- Creates TH1D of TAC bins, difference between start_tree and stop_tree results in the centroid difference necessary
+FUTURE:
+- possibly allow this function to be used independently of using llt_start_gate() first, maybe by calling it with an if condition
+*/
 
+void Draw_llt_TacSpectra(int La1_Low, int La1_high, int La2_Low, int La2_high, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
 	outfile->cd();
-	llt.Draw(Form("%s:%s>>latac_gate_start_la_%d_%d(%d,%f,%f,%d,%f,%f)",start.c_str(),tac.c_str(),(int)low,(int)high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin),
-		Form("%s>%f&&%s<%f",stop.c_str(),low,stop.c_str(),high ) );
-	TH2D *latacmat = (TH2D*)outfile->Get(Form("latac_gate_stop_la_%f_%f",low,high));
+
+	TH2D *latac_del_mat = (TH2D*)outfile->Get(Form("latac_gate_la1_%d_%d",La1_Low,La1_high));
+	TH1D *histoTAC_del = latac_del_mat->ProjectionX(Form("hTAC_La1_%d_%d_La2_%d_%d",La1_Low,La1_high,La2_Low,La2_high),La2_Low,La2_high);
+	
+	TH2D *latac_antidel_mat = (TH2D*)outfile->Get(Form("latac_gate_la2_%d_%d",La1_Low,La1_high));
+	TH1D *histoTAC_antidel = latac_antidel_mat->ProjectionX(Form("hTAC_La1_%d_%d_La2_%d_%d",La2_Low,La2_high,La1_Low,La1_high),La1_Low,La1_high);
+
+	// This section is to write the histograms to a file if necessary
+	outfile->Write(histoTAC_del->GetName(),TObject::kOverwrite);
+	outfile->Write(histoTAC_antidel->GetName(),TObject::kOverwrite);
 }
