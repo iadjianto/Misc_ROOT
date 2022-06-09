@@ -84,22 +84,22 @@ OUTPUT:
 - Creates TH2D of second LaBr and TAC bins. 
 - Creates TH1D of second LaBr projection if user wants to visualize possible gating targets
 */
-//TH2D *llt_start_gate(int La1_Low, int La1_high,int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
-void llt_start_gate(int La1_Low, int La1_high,int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
+//TH2D *llt_start_gate(int Gate1_Low, int Gate1_high,int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
+void llt_start_gate(int Gate1_Low, int Gate1_high,int LaBrNBins = 5000, double LaBrfirstbin = 0.5, double LaBrlastbin = 5000.5, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
 	outfile->cd();
 
 	//start_tree->Clear();
-	start_tree = llt.CopyTree( GatingCondition(start,La1_Low, La1_high ) );
-	start_tree->Draw(Form("%s:%s>>latac_gate_la1_%d_%d(%d,%f,%f,%d,%f,%f)",stop.c_str(),tac.c_str(),La1_Low,La1_high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin));
-	TH2D *latacdelmat = (TH2D*)outfile->Get(Form("latac_gate_la1_%d_%d",La1_Low,La1_high));
-	TH1D *laprojhisto = latacdelmat->ProjectionY(Form("la2_proj_gate_la1_%d_%d",La1_Low,La1_high));
+	start_tree = llt.CopyTree( GatingCondition(start,Gate1_Low, Gate1_high ) );
+	start_tree->Draw(Form("%s:%s>>latac_gate_la1_%d_%d(%d,%f,%f,%d,%f,%f)",stop.c_str(),tac.c_str(),Gate1_Low,Gate1_high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin));
+	TH2D *latacdelmat = (TH2D*)outfile->Get(Form("latac_gate_la1_%d_%d",Gate1_Low,Gate1_high));
+	TH1D *laprojhisto = latacdelmat->ProjectionY(Form("la2_proj_gate_la1_%d_%d",Gate1_Low,Gate1_high));
 	start_tree->SetName("StartTree");
 	
 	
-	stop_tree = llt.CopyTree( GatingCondition(stop,La1_Low,La1_high ) );
-	stop_tree->Draw(Form("%s:%s>>latac_gate_la2_%d_%d(%d,%f,%f,%d,%f,%f)",start.c_str(),tac.c_str(),La1_Low,La1_high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin));
-	TH2D *latacantidelmat = (TH2D*)outfile->Get(Form("latac_gate_la2_%d_%d",La1_Low,La1_high));
-	TH1D *laprojantihisto = latacantidelmat->ProjectionY(Form("la1_proj_gate_la2_%d_%d",La1_Low,La1_high));
+	stop_tree = llt.CopyTree( GatingCondition(stop,Gate1_Low,Gate1_high ) );
+	stop_tree->Draw(Form("%s:%s>>latac_gate_la2_%d_%d(%d,%f,%f,%d,%f,%f)",start.c_str(),tac.c_str(),Gate1_Low,Gate1_high,TacNBins,Tacfirstbin,Taclastbin,LaBrNBins,LaBrfirstbin,LaBrlastbin));
+	TH2D *latacantidelmat = (TH2D*)outfile->Get(Form("latac_gate_la2_%d_%d",Gate1_Low,Gate1_high));
+	TH1D *laprojantihisto = latacantidelmat->ProjectionY(Form("la1_proj_gate_la2_%d_%d",Gate1_Low,Gate1_high));
 	stop_tree->SetName("StopTree");
 
 	// This section is to write the histograms to a file if necessary
@@ -121,14 +121,14 @@ FUTURE:
 - possibly allow this function to be used independently of using llt_start_gate() first, maybe by calling it with an if condition
 */
 
-void Draw_llt_TacSpectra(int La1_Low, int La1_high, int La2_Low, int La2_high, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
+void Draw_llt_TacSpectra(int Gate1_Low, int Gate1_high, int Gate2_Low, int Gate2_high, int TacNBins = 50000, double Tacfirstbin = 0, double Taclastbin = 50000){
 	outfile->cd();
 
-	TH2D *latac_del_mat = (TH2D*)outfile->Get(Form("latac_gate_la1_%d_%d",La1_Low,La1_high));
-	TH1D *histoTAC_del = latac_del_mat->ProjectionX(Form("hTAC_La1_%d_%d_La2_%d_%d",La1_Low,La1_high,La2_Low,La2_high),La2_Low,La2_high);
+	TH2D *latac_del_mat = (TH2D*)outfile->Get(Form("latac_gate_la1_%d_%d",Gate1_Low,Gate1_high));
+	TH1D *histoTAC_del = latac_del_mat->ProjectionX(Form("hTAC_La1_%d_%d_La2_%d_%d",Gate1_Low,Gate1_high,Gate2_Low,Gate2_high),Gate2_Low,Gate2_high);
 	
-	TH2D *latac_antidel_mat = (TH2D*)outfile->Get(Form("latac_gate_la2_%d_%d",La1_Low,La1_high));
-	TH1D *histoTAC_antidel = latac_antidel_mat->ProjectionX(Form("hTAC_La1_%d_%d_La2_%d_%d",La2_Low,La2_high,La1_Low,La1_high),La1_Low,La1_high);
+	TH2D *latac_antidel_mat = (TH2D*)outfile->Get(Form("latac_gate_la2_%d_%d",Gate1_Low,Gate1_high));
+	TH1D *histoTAC_antidel = latac_antidel_mat->ProjectionX(Form("hTAC_La1_%d_%d_La2_%d_%d",Gate2_Low,Gate2_high,Gate1_Low,Gate1_high),Gate1_Low,Gate1_high);
 
 	// This section is to write the histograms to a file if necessary
 	outfile->Write(histoTAC_del->GetName(),TObject::kOverwrite);
